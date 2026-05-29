@@ -6,6 +6,7 @@ from .state import ResearchState
 from .graph import build_graph
 from .memory import retrieve_similar_reports
 
+
 app = FastAPI(title="LangGraph Multi-Agent Research Assistant")
 
 # Build the LangGraph once at startup
@@ -27,12 +28,6 @@ class ResearchResponse(BaseModel):
 
 @app.post("/research", response_model=ResearchResponse)
 async def conduct_research(req: ResearchRequest):
-    """
-    Single entrypoint:
-    - Build initial ResearchState
-    - Invoke LangGraph app
-    - Return final report + sources + metadata
-    """
     state: ResearchState = {
         "query": req.query,
         "search_results": [],
@@ -40,11 +35,14 @@ async def conduct_research(req: ResearchRequest):
         "critique_notes": "",
         "needs_more_research": True,
         "report": "",
-        "past_reports": None, ##added memory for persistance across sessions
+        "past_reports": None,
     }
+
+    # New: retrieve up to 3 similar past research summaries
     past = retrieve_similar_reports(req.query, k=3)
     if past:
         state["past_reports"] = past
+
     final_state = graph.invoke(state)
 
     return ResearchResponse(
