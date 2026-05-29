@@ -102,6 +102,7 @@ Do not include any extra keys, comments, markdown, or text outside the JSON.
     return state
 
 
+
 def synthesis_node(state: ResearchState) -> ResearchState:
     """
     Synthesis agent (Gemini):
@@ -117,7 +118,16 @@ def synthesis_node(state: ResearchState) -> ResearchState:
     critique_notes = state.get("critique_notes", "")
 
     sources_text = _format_results_for_prompt(search_results)
-
+    past_reports = state.get("past_reports", [])
+    if past_reports:
+        memory_block_lines = []
+        for i, item in enumerate(past_reports, start=1):
+            pq = item.get("query", "Unknown query")
+            ps = item.get("summary", "")
+            memory_block_lines.append(f"[Mem {i}] Query: {pq}\nSummary: {ps}")
+        memory_block = "\n\n".join(memory_block_lines)
+    else:
+        memory_block = "None"
     prompt = f"""
 You are a research synthesis assistant. Your task is to synthesize the information from the search results to answer the user's query in a structured report.
 
@@ -129,6 +139,8 @@ SEARCH RESULTS:
 
 CRITIQUE NOTES (may highlight gaps or limitations):
 {critique_notes}
+RELATED PAST RESEARCH (if any):
+{memory_block}
 
 Write the report with the following sections, in this exact order:
 
@@ -143,9 +155,16 @@ Write the report with the following sections, in this exact order:
 Guidelines:
 - Use citation markers like [1], [2], [3] in the text whenever you rely on a specific source.
 - The numbers must correspond to the numbered SEARCH RESULTS above.
-- Be concise but specific. Avoid generic statements that are not grounded in the sources.
+- Be concise but specific. Avoid generic statements that are not grounded in the sources. 
+- You may reuse insights from RELATED PAST RESEARCH if they are clearly relevant, but always prioritize up-to-date web results when there is a conflict.
 """.strip()
 
     response = llm.invoke(prompt)
-    state["report"] = str(getattr(response, "content", response))
+    report_text = str(getattr(response, "content", response))
+
+    state["report"] = report_text
+    # New: persist this run as a memory
+    query = state.get("query", "")
+    if query and report_text:
+        save_report_to_memory(query, report_text)
     return state
