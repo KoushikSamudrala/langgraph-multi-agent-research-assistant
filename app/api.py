@@ -4,6 +4,7 @@ from typing import List, Dict, Optional
 
 from .state import ResearchState
 from .graph import build_graph
+from .memory import retrieve_similar_reports
 
 app = FastAPI(title="LangGraph Multi-Agent Research Assistant")
 
@@ -41,7 +42,9 @@ async def conduct_research(req: ResearchRequest):
         "report": "",
         "past_reports": None, ##added memory for persistance across sessions
     }
-
+    past = retrieve_similar_reports(req.query, k=3)
+    if past:
+        state["past_reports"] = past
     final_state = graph.invoke(state)
 
     return ResearchResponse(
