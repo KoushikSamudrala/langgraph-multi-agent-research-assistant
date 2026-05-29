@@ -5,6 +5,7 @@ from tavily import TavilyClient
 
 from .state import ResearchState
 from .llm import get_llm
+from .memory import save_report_to_memory
 
 # Tavily client for web research
 tavily_client = TavilyClient()
@@ -104,21 +105,14 @@ Do not include any extra keys, comments, markdown, or text outside the JSON.
 
 
 def synthesis_node(state: ResearchState) -> ResearchState:
-    """
-    Synthesis agent (Gemini):
-    - Reads query, search_results, critique_notes
-    - Writes a structured report with sections:
-      Title, Executive Summary, Background, Key Findings,
-      Nuances/Limitations, Recommended Next Steps, Sources
-    - Uses [1], [2], ... citations aligned with SEARCH RESULTS.
-    """
     llm = get_llm()
     query = state.get("query", "")
     search_results = state.get("search_results", [])
     critique_notes = state.get("critique_notes", "")
 
     sources_text = _format_results_for_prompt(search_results)
-    past_reports = state.get("past_reports", [])
+
+    past_reports = state.get("past_reports") or []
     if past_reports:
         memory_block_lines = []
         for i, item in enumerate(past_reports, start=1):
@@ -128,19 +122,21 @@ def synthesis_node(state: ResearchState) -> ResearchState:
         memory_block = "\n\n".join(memory_block_lines)
     else:
         memory_block = "None"
+
     prompt = f"""
 You are a research synthesis assistant. Your task is to synthesize the information from the search results to answer the user's query in a structured report.
 
 User query:
 {query}
 
+RELATED PAST RESEARCH (if any):
+{memory_block}
+
 SEARCH RESULTS:
 {sources_text}
 
 CRITIQUE NOTES (may highlight gaps or limitations):
 {critique_notes}
-RELATED PAST RESEARCH (if any):
-{memory_block}
 
 Write the report with the following sections, in this exact order:
 
@@ -153,18 +149,19 @@ Write the report with the following sections, in this exact order:
 7. Sources
 
 Guidelines:
+- You may reuse insights from RELATED PAST RESEARCH if clearly relevant, but always prioritize up-to-date web results when there is a conflict.
 - Use citation markers like [1], [2], [3] in the text whenever you rely on a specific source.
 - The numbers must correspond to the numbered SEARCH RESULTS above.
-- Be concise but specific. Avoid generic statements that are not grounded in the sources. 
-- You may reuse insights from RELATED PAST RESEARCH if they are clearly relevant, but always prioritize up-to-date web results when there is a conflict.
+- Be concise but specific. Avoid generic statements that are not grounded in the sources.
 """.strip()
 
     response = llm.invoke(prompt)
     report_text = str(getattr(response, "content", response))
 
     state["report"] = report_text
-    # New: persist this run as a memory
-    query = state.get("query", "")
+
+    # Persist this run as a memory (stub for now; real Chroma later)
     if query and report_text:
         save_report_to_memory(query, report_text)
+
     return state
