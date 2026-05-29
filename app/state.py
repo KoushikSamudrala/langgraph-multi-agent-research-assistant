@@ -18,3 +18,4 @@ class ResearchState(TypedDict):
     needs_more_research: bool
     num_iterations: int
     report: Optional[str]
+    past_reports: Optional[List[Dict]]  # each: {"query": str, "summary": str} each item is a past query along with a short summary
