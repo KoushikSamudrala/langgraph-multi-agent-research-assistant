@@ -39,6 +39,7 @@ async def conduct_research(req: ResearchRequest):
         "critique_notes": "",
         "needs_more_research": True,
         "report": "",
+        "past_reports": None, ##added memory for persistance across sessions
     }
 
     final_state = graph.invoke(state)
