@@ -1,0 +1,15 @@
+.git
+.gitignore
+.env
+.env.*
+__pycache__/
+*.pyc
+.venv/
+venv/
+frontend/
+tests/
+chroma_db/
+*.sqlite3
+README.md
+run_api.sh
+run_ui.sh
